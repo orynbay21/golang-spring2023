@@ -1,0 +1,5 @@
+curl http://localhost:8080/books \
+    --include \
+    --header "Content-Type: application/json" \
+    --request "POST" \
+    --data '{"title": "My Book", "author": "someauthor"}'    
