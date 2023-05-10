@@ -1,0 +1,89 @@
+I
+that filters a BSON (Binary JSON) document based on a specific _id value.
+
+ match_filter is a variable that is being assigned a new BSON document using the bson.D constructor.
+  The Key is $match, which is a MongoDB aggregation pipeline stage that filters documents based on a specified condition.
+   The Value is another BSON document that specifies the _id field to match against.
+
+So, in summary, this line of code is creating a new filter pipeline stage for matching documents based on their _id field.
+
+
+		match_filter := bson.D{{Key: "$match", Value: bson.D{primitive.E{Key: "_id", Value: address}}}}
+        //filters a BSON(binary json) document 
+        //bson.D constructor creates on ordered list of key-value pairs
+        //$match key operator filters docs based on a condition that is set in Value
+        //Value is another BSON document that specifies the _id field to match against 
+
+
+/*
+type Product struct {
+  Product_ID       primitive.ObjectID   bson:"_id"
+  Product_Name     *string              json:"product_name"
+  Price            *int               json:"price"
+  Comment             []Comment           json:"comment" bson:"comment"
+}
+type Comment struct{
+  Comment_id     primitive.ObjectID    bson:"_id"
+  Comment        *string                 json:"comment" bson:"comment"
+  Rating          *int                    json:"rating" bson:"rating"
+}
+
+*/
+func AddComment() gin.HandlerFunc {
+  return func(c *gin.Context) {
+    product_id:= c.Query("id") //returns the value of the key if it exists
+    if product_id == "" {
+      //setting the response header - metadata that can be included with JSON data to provide additional context and information about the data being transmitted.
+      c.Header("Content-Type", "application/json")
+
+      c.JSON(http.StatusNotFound, gin.H{"error": "user id is empty"})
+      //any remaining handlers that are set up to execute in the current HTTP request will not be executed.
+      c.Abort()
+      return
+    }
+    comment,err:=primitive.ObjectIDFromHex(product_id)
+    //address, err := primitive.ObjectIDFromHex(user_id)
+    if err != nil {
+      c.IndentedJSON(500, "Internal Server Error")
+    }
+    var comments models.Comment
+    comments.Comment_id=primitive.NewObjectID()
+    if err = c.BindJSON(&comments); err != nil {
+      c.IndentedJSON(http.StatusNotAcceptable, err.Error())
+    }
+    var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+    match_filter := bson.D{{Key: "$match", Value: bson.D{primitive.E{Key: "_id", Value: comment}}}}
+    unwind := bson.D{{Key: "$unwind", Value: bson.D{primitive.E{Key: "path", Value: "$comment"}}}}
+    group := bson.D{{Key: "$group", Value: bson.D{primitive.E{Key: "_id", Value: "$Comment_id"}, {Key: "count", Value: bson.D{primitive.E{Key: "$sum", Value: 1}}}}}}
+
+    pointcursor, err := ProductCollection.Aggregate(ctx, mongo.Pipeline{match_filter, unwind, group})
+    if err != nil {
+      c.IndentedJSON(500, "Internal Server Error")
+    }
+    var commentinfo []bson.M
+    if err = pointcursor.All(ctx, &commentinfo); err != nil {
+      panic(err)
+    }
+
+    var size int32
+
+    for _, comment_no := range commentinfo {
+
+      count := comment_no["count"]
+      size = count.(int32) //state that the value stored in count is of type int32
+      //assign that value to the size variable
+      //size ==number of addresses
+    }
+    filter := bson.D{primitive.E{Key: "_id", Value: comment}}
+    update := bson.D{{Key: "$push", Value: bson.D{primitive.E{Key: "comment", Value: comments}}}}
+    _, err =ProductCollection.UpdateOne(ctx, filter, update)
+    if err != nil {
+      fmt.Println(err)
+    }else{
+      fmt.Println(size)
+    }
+    c.IndentedJSON(200,"Successfully added your comment!")
+    defer cancel()
+    ctx.Done()
+  }
+}
