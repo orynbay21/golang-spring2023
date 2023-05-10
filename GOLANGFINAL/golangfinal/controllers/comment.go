@@ -66,3 +66,8 @@ func AddComment() gin.HandlerFunc {
     ctx.Done()
   }
 }
+func DeleteComment() gin.HandlerFunc{
+  return func(c *gin.Context){
+    
+  }
+}

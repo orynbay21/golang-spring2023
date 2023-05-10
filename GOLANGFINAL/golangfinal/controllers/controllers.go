@@ -186,40 +186,7 @@ func ProductViewerAdmin() gin.HandlerFunc {
 		c.JSON(http.StatusOK, "Successfully added our Product Admin!!")
 	}
 }
-//adding a rating
 
-func AddRating() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		product_id:= c.Query("id") //returns the value of the key if it exists
-			if product_id == "" {
-			c.Header("Content-Type", "application/json")
-			c.JSON(http.StatusNotFound, gin.H{"error": "user id is empty"})
-			c.Abort()
-			return
-			}
-		rating:=c.Query("rating")
-			if rating==""{
-			c.Header("Content-Type", "application/json")
-			c.JSON(http.StatusNotFound, gin.H{"error": "user id is empty"})
-			c.Abort()
-			return
-			}
-		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
-		defer cancel()
-		var ratingint int
-		ratingint,_=strconv.Atoi(rating)
-		filter:=bson.D{primitive.E{Key: "_id", Value: product_id}}
-		update:=bson.D{{Key: "$push", Value: bson.D{primitive.E{Key: "total_rating", Value:ratingint}}}}
-		res,err:=ProductCollection.UpdateOne(ctx,filter,update)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Not Created"})
-			return
-		}
-		fmt.Println(res.ModifiedCount)
-		c.JSON(http.StatusOK, "Successfully added ur rating")
-		ctx.Done()
-	}
-}
 
 // getting the list of all products for the non-authenticated users
 func SearchProduct() gin.HandlerFunc {
@@ -296,70 +263,40 @@ func SearchProductByQuery() gin.HandlerFunc {
 		c.IndentedJSON(200, searchproducts)
 	}
 }
-
-func FilterEqualPrice() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		//searchproducts=allproducts
-		//var searchproducts []models.Product//slice
+func FilterPrice() gin.HandlerFunc{
+	return func(c *gin.Context){
 		var searchproducts []models.Product
 		queryParam := c.Query("price")
-
 		if queryParam == "" {
-			//always log problems in the terminal for urself
-			log.Println("query is empty")
-			c.Header("Content-Type", "application/json")
+			log.Println("no price was entered is empty")
 			c.JSON(http.StatusNotFound, gin.H{"Error": "Invalid Search Index"})
 			c.Abort()
 			return
 		}
-		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
-		defer cancel()
-		var intprice int
-		intprice,_ = strconv.Atoi(queryParam)
-		//egular expression for string pattern matching
-		searchquerydb, err := ProductCollection.Find(ctx, bson.M{"price": bson.M{"$eq": intprice}})
-		if err != nil {
-			c.IndentedJSON(404, "something went wrong in fetching the dbquery")
-			return
-		}
-		err = searchquerydb.All(ctx, &searchproducts)
-		if err != nil {
-			log.Println(err)
-			c.IndentedJSON(400, "invalid")
-			return
-		}
-		defer searchquerydb.Close(ctx)
-		if err := searchquerydb.Err(); err != nil {
-			log.Println(err)
-			c.IndentedJSON(400, "invalid request")
-			return
-		}
-		defer cancel()
-		c.IndentedJSON(200, searchproducts)
-	}
-}
-
-func FilterLowerPrice() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		//searchproducts=allproducts
-		//var searchproducts []models.Product//slice
-		var searchproducts []models.Product
-		queryParam := c.Query("price")
-
+		filterCond := c.Query("filter")
 		if queryParam == "" {
-			//always log problems in the terminal for urself
-			log.Println("query is empty")
-			c.Header("Content-Type", "application/json")
+			log.Println("choose the filter condition")
 			c.JSON(http.StatusNotFound, gin.H{"Error": "Invalid Search Index"})
 			c.Abort()
 			return
 		}
-		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+		var ctx,cancel=context.WithTimeout(context.Background(),100*time.Second)
 		defer cancel()
-		var intprice int
-		intprice,_ = strconv.Atoi(queryParam)
-		//egular expression for string pattern matching
-		searchquerydb, err := ProductCollection.Find(ctx, bson.M{"price": bson.M{"$lt": intprice}})
+		var price_int int
+		price_int,_=strconv.Atoi(queryParam)
+		var searchquerydb *mongo.Cursor
+		var err error
+		switch filterCond{
+		case "eq":
+				searchquerydb, err = ProductCollection.Find(ctx, bson.M{"price": bson.M{"$eq": price_int}})
+
+		case "gte":
+				searchquerydb, err = ProductCollection.Find(ctx, bson.M{"price": bson.M{"$gte": price_int}})
+				
+		case "lte":
+				searchquerydb, err = ProductCollection.Find(ctx, bson.M{"price": bson.M{"$lte": price_int}})
+		
+		}
 		if err != nil {
 			c.IndentedJSON(404, "something went wrong in fetching the dbquery")
 			return
